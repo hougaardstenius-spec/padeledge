@@ -1,78 +1,56 @@
 import cv2
 import mediapipe as mp
+import numpy as np
 import tempfile
-import math
+import joblib
 
 mp_pose = mp.solutions.pose
 
 def classify_strokes(video_file):
-    # Save uploaded video temporarily
+    # Load trained model
+    try:
+        model = joblib.load("utils/padel_model.pkl")
+    except:
+        return {"error": "No trained model found. Please train one first."}
+
+    # Save video temporarily
     tfile = tempfile.NamedTemporaryFile(delete=False)
     tfile.write(video_file.read())
 
-    # Load video
     cap = cv2.VideoCapture(tfile.name)
-    if not cap.isOpened():
-        return {"error": "Could not open video."}
-
-    stroke_counts = {
-        "forehand": 0,
-        "backhand": 0,
-        "volley_forehand": 0,
-        "volley_backhand": 0,
-        "bandeja": 0,
-        "vibora": 0,
-        "rulo": 0,
-        "smash": 0,
-        "bajada": 0
-    }
-
-    frame_count = 0
-    prev_wrist_y = None
-    prev_elbow_y = None
+    features = []
 
     with mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5) as pose:
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
-            frame_count += 1
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = pose.process(frame_rgb)
-
             if results.pose_landmarks:
-                landmarks = results.pose_landmarks.landmark
-                wrist = landmarks[mp_pose.PoseLandmark.RIGHT_WRIST]
-                elbow = landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW]
-                shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER]
+                lm = results.pose_landmarks.landmark
+                wrist = lm[mp_pose.PoseLandmark.RIGHT_WRIST]
+                elbow = lm[mp_pose.PoseLandmark.RIGHT_ELBOW]
+                shoulder = lm[mp_pose.PoseLandmark.RIGHT_SHOULDER]
+                hip = lm[mp_pose.PoseLandmark.RIGHT_HIP]
 
-                wrist_y = wrist.y
-                elbow_y = elbow.y
-                shoulder_y = shoulder.y
+                arm_angle = np.degrees(np.arctan2(
+                    elbow.y - shoulder.y, elbow.x - shoulder.x))
+                wrist_elbow_dist = np.linalg.norm([
+                    wrist.x - elbow.x, wrist.y - elbow.y])
+                shoulder_hip_dist = np.linalg.norm([
+                    shoulder.x - hip.x, shoulder.y - hip.y])
 
-                # Detect motion direction
-                if prev_wrist_y and abs(wrist_y - prev_wrist_y) > 0.1:
-                    motion = "up" if wrist_y < prev_wrist_y else "down"
+                features.append([arm_angle, wrist_elbow_dist, shoulder_hip_dist])
 
-                    # Heuristic classification
-                    if motion == "up" and wrist_y < shoulder_y:
-                        stroke_counts["smash"] += 1
-                    elif motion == "down" and wrist_y < shoulder_y and elbow_y < shoulder_y:
-                        stroke_counts["bandeja"] += 1
-                    elif motion == "down" and wrist_y > shoulder_y:
-                        stroke_counts["forehand"] += 1
-                    elif motion == "up" and wrist_y > shoulder_y:
-                        stroke_counts["backhand"] += 1
-                    # more heuristics can be added later...
+    cap.release()
+    if not features:
+        return {"error": "No pose landmarks detected."}
 
-                prev_wrist_y = wrist_y
-                prev_elbow_y = elbow_y
+    avg_feat = np.array(features).mean(axis=0).reshape(1, -1)
+    prediction = model.predict(avg_feat)[0]
 
-        cap.release()
-
-    total = sum(stroke_counts.values())
     return {
-        "total_strokes": total,
-        "details": stroke_counts,
-        "status": "✅ Stroke classification complete (beta heuristic mode)"
+        "predicted_stroke": prediction,
+        "status": "✅ AI-based classification successful!"
     }
