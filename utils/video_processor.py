@@ -1,8 +1,11 @@
-import cv2
-import mediapipe as mp
 import numpy as np
 
-mp_pose = mp.solutions.pose
+# ⚠️ MediaPipe temporarily disabled on Streamlit Cloud
+# This dummy function just simulates video keypoint extraction
+def extract_keypoints_from_video(video_path, frame_skip=3):
+    # Simulate keypoints as random data
+    keypoints = np.random.normal(size=(100, 3))
+    return keypoints
 
 def extract_keypoints_from_video(video_path, frame_skip=3):
     cap = cv2.VideoCapture(video_path)
