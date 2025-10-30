@@ -1,56 +1,86 @@
-import cv2
-import mediapipe as mp
+import os
 import numpy as np
-import tempfile
 import joblib
 
-mp_pose = mp.solutions.pose
+# --------------------------------------------------------
+# Define all padel stroke types and their synthetic patterns
+# --------------------------------------------------------
+STROKES = {
+    # Groundstrokes
+    "forehand":        {"angle_mean": 45,  "angle_std": 8,  "dist1": 0.3,  "dist2": 0.4},
+    "backhand":        {"angle_mean": 135, "angle_std": 10, "dist1": 0.35, "dist2": 0.45},
+    "chiquita":        {"angle_mean": 55,  "angle_std": 6,  "dist1": 0.25, "dist2": 0.35},
+    "lob":             {"angle_mean": 80,  "angle_std": 7,  "dist1": 0.2,  "dist2": 0.25},
 
-def classify_strokes(video_file):
-    # Load trained model
-    try:
-        model = joblib.load("utils/padel_model.pkl")
-    except:
-        return {"error": "No trained model found. Please train one first."}
+    # Volleys
+    "forehand_volley": {"angle_mean": 30,  "angle_std": 6,  "dist1": 0.25, "dist2": 0.3},
+    "backhand_volley": {"angle_mean": 150, "angle_std": 6,  "dist1": 0.25, "dist2": 0.35},
+    "chancletazo":     {"angle_mean": 40,  "angle_std": 8,  "dist1": 0.2,  "dist2": 0.25},
+    "volley_lob":      {"angle_mean": 70,  "angle_std": 7,  "dist1": 0.22, "dist2": 0.28},
 
-    # Save video temporarily
-    tfile = tempfile.NamedTemporaryFile(delete=False)
-    tfile.write(video_file.read())
+    # Overheads
+    "bandeja":         {"angle_mean": 75,  "angle_std": 5,  "dist1": 0.2,  "dist2": 0.3},
+    "vibora":          {"angle_mean": 85,  "angle_std": 5,  "dist1": 0.22, "dist2": 0.32},
+    "rulo":            {"angle_mean": 95,  "angle_std": 6,  "dist1": 0.25, "dist2": 0.35},
+    "gancho":          {"angle_mean": 110, "angle_std": 8,  "dist1": 0.25, "dist2": 0.38},
+    "smash":           {"angle_mean": 20,  "angle_std": 4,  "dist1": 0.28, "dist2": 0.4},
 
-    cap = cv2.VideoCapture(tfile.name)
-    features = []
+    # After backglass
+    "bajada":          {"angle_mean": 60,  "angle_std": 6,  "dist1": 0.3,  "dist2": 0.35},
+    "cuchilla":        {"angle_mean": 130, "angle_std": 6,  "dist1": 0.27, "dist2": 0.33},
+}
 
-    with mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5) as pose:
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(frame_rgb)
-            if results.pose_landmarks:
-                lm = results.pose_landmarks.landmark
-                wrist = lm[mp_pose.PoseLandmark.RIGHT_WRIST]
-                elbow = lm[mp_pose.PoseLandmark.RIGHT_ELBOW]
-                shoulder = lm[mp_pose.PoseLandmark.RIGHT_SHOULDER]
-                hip = lm[mp_pose.PoseLandmark.RIGHT_HIP]
+# --------------------------------------------------------
+# Generate synthetic dataset (for quick testing/training)
+# --------------------------------------------------------
+def generate_synthetic_data(samples_per_stroke=80, save_dir="data/synthetic"):
+    os.makedirs(save_dir, exist_ok=True)
+    X, y = [], []
 
-                arm_angle = np.degrees(np.arctan2(
-                    elbow.y - shoulder.y, elbow.x - shoulder.x))
-                wrist_elbow_dist = np.linalg.norm([
-                    wrist.x - elbow.x, wrist.y - elbow.y])
-                shoulder_hip_dist = np.linalg.norm([
-                    shoulder.x - hip.x, shoulder.y - hip.y])
+    for stroke, params in STROKES.items():
+        for _ in range(samples_per_stroke):
+            arm_angle = np.random.normal(params["angle_mean"], params["angle_std"])
+            wrist_elbow_dist = np.random.normal(params["dist1"], 0.02)
+            shoulder_hip_dist = np.random.normal(params["dist2"], 0.02)
+            X.append([arm_angle, wrist_elbow_dist, shoulder_hip_dist])
+            y.append(stroke)
 
-                features.append([arm_angle, wrist_elbow_dist, shoulder_hip_dist])
+    X, y = np.array(X), np.array(y)
+    np.save(os.path.join(save_dir, "X.npy"), X)
+    np.save(os.path.join(save_dir, "y.npy"), y)
+    print(f"✅ Generated {len(y)} samples for {len(STROKES)} stroke types.")
+    return X, y
 
-    cap.release()
-    if not features:
-        return {"error": "No pose landmarks detected."}
 
-    avg_feat = np.array(features).mean(axis=0).reshape(1, -1)
-    prediction = model.predict(avg_feat)[0]
+# --------------------------------------------------------
+# Train model on synthetic data
+# --------------------------------------------------------
+def train_synthetic_model():
+    from sklearn.ensemble import RandomForestClassifier
 
-    return {
-        "predicted_stroke": prediction,
-        "status": "✅ AI-based classification successful!"
-    }
+    X, y = generate_synthetic_data()
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model.fit(X, y)
+    os.makedirs("utils", exist_ok=True)
+    joblib.dump(model, "utils/padel_model.pkl")
+    print("✅ Trained model saved as utils/padel_model.pkl")
+    print(f"Stroke classes: {sorted(set(y))}")
+
+
+# --------------------------------------------------------
+# Load model and classify strokes
+# --------------------------------------------------------
+def classify_strokes(input_data):
+    if not os.path.exists("utils/padel_model.pkl"):
+        raise FileNotFoundError("❌ Model file missing! Train it first using train_synthetic_model().")
+
+    model = joblib.load("utils/padel_model.pkl")
+    predictions = model.predict(input_data)
+    return predictions
+
+
+# --------------------------------------------------------
+# Optional: run this file directly to retrain the model
+# --------------------------------------------------------
+if __name__ == "__main__":
+    train_synthetic_model()
