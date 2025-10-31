@@ -1,37 +1,62 @@
 import numpy as np
 
-# ⚠️ MediaPipe temporarily disabled on Streamlit Cloud
-# This dummy function just simulates video keypoint extraction
-def extract_keypoints_from_video(video_path, frame_skip=3):
-    # Simulate keypoints as random data
-    keypoints = np.random.normal(size=(100, 3))
-    return keypoints
+# ----------------------------------------------------------
+# Try importing MediaPipe + OpenCV; if not available (e.g., Streamlit Cloud),
+# automatically switch to mock mode with fake keypoints.
+# ----------------------------------------------------------
+try:
+    import cv2
+    import mediapipe as mp
+    mp_pose = mp.solutions.pose
+    USE_MEDIAPIPE = True
+    print("✅ MediaPipe detected — running in REAL video mode.")
+except Exception as e:
+    USE_MEDIAPIPE = False
+    print("⚠️ MediaPipe not available — running in MOCK mode.")
+
 
 def extract_keypoints_from_video(video_path, frame_skip=3):
-    cap = cv2.VideoCapture(video_path)
-    pose = mp_pose.Pose()
-    keypoints = []
+    """
+    Extracts pose keypoints using MediaPipe if available,
+    otherwise generates mock keypoints (safe for Streamlit Cloud).
+    """
+    if not USE_MEDIAPIPE:
+        print("⚠️ Using simulated keypoints — Streamlit Cloud mock mode.")
+        # Generate fake data (100 samples, 3 features)
+        return np.random.normal(loc=0.5, scale=0.1, size=(100, 3))
 
-    frame_idx = 0
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        if frame_idx % frame_skip == 0:
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(rgb)
-            if results.pose_landmarks:
-                # Example: use shoulder, elbow, wrist, hip keypoints
-                lm = results.pose_landmarks.landmark
-                angles = calc_angles(lm)
-                keypoints.append(angles)
-        frame_idx += 1
+    # ✅ Local Mode: Use real video analysis
+    try:
+        cap = cv2.VideoCapture(video_path)
+        pose = mp_pose.Pose()
+        keypoints = []
 
-    cap.release()
-    return np.array(keypoints)
+        frame_idx = 0
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if frame_idx % frame_skip == 0:
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                results = pose.process(rgb)
+                if results.pose_landmarks:
+                    lm = results.pose_landmarks.landmark
+                    angles = calc_angles(lm)
+                    keypoints.append(angles)
+            frame_idx += 1
+
+        cap.release()
+        return np.array(keypoints)
+
+    except Exception as e:
+        print(f"⚠️ OpenCV video processing failed ({e}). Switching to mock mode.")
+        return np.random.normal(loc=0.5, scale=0.1, size=(100, 3))
+
 
 def calc_angles(lm):
-    # Example: arm angle, wrist-elbow distance, shoulder-hip distance
+    """Helper function to compute pose-based features."""
+    mp_pose = getattr(__import__('mediapipe').solutions, 'pose')
+
     shoulder = np.array([lm[mp_pose.PoseLandmark.RIGHT_SHOULDER].x,
                          lm[mp_pose.PoseLandmark.RIGHT_SHOULDER].y])
     elbow = np.array([lm[mp_pose.PoseLandmark.RIGHT_ELBOW].x,
@@ -42,9 +67,7 @@ def calc_angles(lm):
                     lm[mp_pose.PoseLandmark.RIGHT_HIP].y])
 
     arm_vector = elbow - shoulder
-    wrist_vector = wrist - elbow
     angle = np.degrees(np.arctan2(arm_vector[1], arm_vector[0]))
-
     dist1 = np.linalg.norm(wrist - elbow)
     dist2 = np.linalg.norm(shoulder - hip)
     return [angle, dist1, dist2]
