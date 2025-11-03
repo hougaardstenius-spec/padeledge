@@ -2,6 +2,7 @@ import base64
 import streamlit as st
 import pandas as pd
 import numpy as np
+import time
 from utils.video_processor import extract_keypoints_from_video
 from utils.shot_detector import detect_shots
 from utils.match_analyzer import analyze_match
@@ -18,7 +19,7 @@ def add_background(image_file):
     """Adds a full-page background image."""
     with open(image_file, "rb") as f:
         data = f.read()
-    encoded = base64.b64encode(data).decode()
+    encoded = base64.b64encode(f.read()).decode()
     css = f"""
     <style>
     [data-testid="stAppViewContainer"] {{
@@ -38,7 +39,7 @@ def add_background(image_file):
     """
     st.markdown(css, unsafe_allow_html=True)
 
-# ✅ Add your PNG background (file should be in same folder as this script)
+# ✅ Add your PNG background
 add_background("background.png")
 
 # --------------------------------------------
@@ -78,20 +79,41 @@ st.write("Upload a short Padel video to test the AI-driven stroke recognition sy
 uploaded_file = st.file_uploader("📤 Upload your match video", type=["mp4", "mov", "avi"])
 
 # --------------------------------------------
-# Video Analysis Workflow
+# Video Analysis Workflow with Progress Bar
 # --------------------------------------------
 if uploaded_file:
     with open("temp_video.mp4", "wb") as f:
         f.write(uploaded_file.read())
 
     st.video("temp_video.mp4")
-    st.write("Analyzing match... please wait ⏳")
+    st.markdown("### ⏳ Analyzing match... please wait")
 
+    progress_text = st.empty()
+    progress_bar = st.progress(0)
+
+    # STEP 1: Extract features
+    progress_text.text("🔍 Extracting player movements from video...")
+    time.sleep(1)
     keypoints = extract_keypoints_from_video("temp_video.mp4")
-    shots = detect_shots(keypoints)
-    summary = analyze_match(shots)
+    progress_bar.progress(30)
 
-    # Display results inside a transparent dashboard overlay
+    # STEP 2: Classify strokes
+    progress_text.text("🎯 Identifying stroke types (AI model in action)...")
+    time.sleep(1)
+    shots = detect_shots(keypoints)
+    progress_bar.progress(65)
+
+    # STEP 3: Analyze match
+    progress_text.text("📊 Compiling match report and statistics...")
+    time.sleep(1)
+    summary = analyze_match(shots)
+    progress_bar.progress(100)
+
+    # STEP 4: Display results
+    progress_text.text("✅ Analysis complete!")
+    time.sleep(0.5)
+    progress_bar.empty()
+
     st.markdown('<div class="dashboard-card">', unsafe_allow_html=True)
     st.header("📊 Match Summary")
 
@@ -102,8 +124,7 @@ if uploaded_file:
 
     st.subheader("🏆 Estimated Score")
     st.markdown(f"<h2 style='text-align:center;'>{summary['score']}</h2>", unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)  # close overlay card
+    st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     st.info("Please upload a video to start your analysis 🎥")
