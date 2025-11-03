@@ -97,11 +97,24 @@ if uploaded_file:
     keypoints = extract_keypoints_from_video("temp_video.mp4")
     progress_bar.progress(30)
 
-    # STEP 2: Classify strokes
-    progress_text.text("🎯 Identifying stroke types (AI model in action)...")
-    time.sleep(1)
-    shots = detect_shots(keypoints)
-    progress_bar.progress(65)
+    # STEP 2: Classify strokes (with live counter)
+progress_text.text("🎯 Identifying stroke types (AI model in action)...")
+shot_counter_placeholder = st.empty()
+
+# Simulate incremental stroke detection for user feedback
+shots = detect_shots(keypoints)
+unique_shots, counts = np.unique(shots, return_counts=True)
+
+detected_summary = {}
+for i, stroke in enumerate(unique_shots):
+    detected_summary[stroke] = counts[i]
+    time.sleep(0.3)  # small delay for live effect
+    total = sum(detected_summary.values())
+    shot_counter_placeholder.markdown(
+        f"**Detected {total} strokes so far:** " +
+        ", ".join([f"{k}: {v}" for k, v in detected_summary.items()])
+    )
+    progress_bar.progress(40 + int((i / len(unique_shots)) * 25))
 
     # STEP 3: Analyze match
     progress_text.text("📊 Compiling match report and statistics...")
