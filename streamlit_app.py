@@ -39,6 +39,10 @@ def add_background(image_file: str):
         st.error(f"❌ Background image not found: {image_file}")
     except Exception as e:
         st.error(f"❌ Error loading background: {e}")
+
+# 👉 ADD THIS LINE
+add_background("background.png")
+
 # --------------------------------------------
 # Custom CSS for Overlay Dashboard
 # --------------------------------------------
