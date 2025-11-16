@@ -40,7 +40,7 @@ def add_background(image_file: str):
     except Exception as e:
         st.error(f"❌ Error loading background: {e}")
 
-# 👉 ADD THIS LINE
+# Inject background
 add_background("background.png")
 
 # --------------------------------------------
@@ -83,6 +83,8 @@ uploaded_file = st.file_uploader("📤 Upload your match video", type=["mp4", "m
 # Video Analysis Workflow with Progress Bar
 # --------------------------------------------
 if uploaded_file:
+
+    # Save temporary video
     with open("temp_video.mp4", "wb") as f:
         f.write(uploaded_file.read())
 
@@ -98,24 +100,25 @@ if uploaded_file:
     keypoints = extract_keypoints_from_video("temp_video.mp4")
     progress_bar.progress(30)
 
-    # STEP 2: Classify strokes (with live counter)
-progress_text.text("🎯 Identifying stroke types (AI model in action)...")
-shot_counter_placeholder = st.empty()
+    # STEP 2: Identify strokes
+    progress_text.text("🎯 Identifying stroke types (AI model in action)...")
+    shot_counter_placeholder = st.empty()
 
-# Simulate incremental stroke detection for user feedback
-shots = detect_shots(keypoints)
-unique_shots, counts = np.unique(shots, return_counts=True)
+    shots = detect_shots(keypoints)
+    unique_shots, counts = np.unique(shots, return_counts=True)
 
-detected_summary = {}
-for i, stroke in enumerate(unique_shots):
-    detected_summary[stroke] = counts[i]
-    time.sleep(0.3)  # small delay for live effect
-    total = sum(detected_summary.values())
-    shot_counter_placeholder.markdown(
-        f"**Detected {total} strokes so far:** " +
-        ", ".join([f"{k}: {v}" for k, v in detected_summary.items()])
-    )
-    progress_bar.progress(40 + int((i / len(unique_shots)) * 25))
+    detected_summary = {}
+    for i, stroke in enumerate(unique_shots):
+        detected_summary[stroke] = counts[i]
+        time.sleep(0.3)
+
+        total = sum(detected_summary.values())
+        shot_counter_placeholder.markdown(
+            f"**Detected {total} strokes so far:** " +
+            ", ".join([f"{k}: {v}" for k, v in detected_summary.items()])
+        )
+
+        progress_bar.progress(40 + int((i / len(unique_shots)) * 25))
 
     # STEP 3: Analyze match
     progress_text.text("📊 Compiling match report and statistics...")
@@ -128,16 +131,27 @@ for i, stroke in enumerate(unique_shots):
     time.sleep(0.5)
     progress_bar.empty()
 
+    # Dashboard block
     st.markdown('<div class="dashboard-card">', unsafe_allow_html=True)
     st.header("📊 Match Summary")
 
     col1, col2, col3 = st.columns(3)
-    col1.markdown(f'<div class="metric-label">Winners</div><div class="metric-value">{summary["winners"]}</div>', unsafe_allow_html=True)
-    col2.markdown(f'<div class="metric-label">Forced Errors</div><div class="metric-value">{summary["forced_errors"]}</div>', unsafe_allow_html=True)
-    col3.markdown(f'<div class="metric-label">Unforced Errors</div><div class="metric-value">{summary["unforced_errors"]}</div>', unsafe_allow_html=True)
+    col1.markdown(
+        f'<div class="metric-label">Winners</div><div class="metric-value">{summary["winners"]}</div>',
+        unsafe_allow_html=True,
+    )
+    col2.markdown(
+        f'<div class="metric-label">Forced Errors</div><div class="metric-value">{summary["forced_errors"]}</div>',
+        unsafe_allow_html=True,
+    )
+    col3.markdown(
+        f'<div class="metric-label">Unforced Errors</div><div class="metric-value">{summary["unforced_errors"]}</div>',
+        unsafe_allow_html=True,
+    )
 
     st.subheader("🏆 Estimated Score")
     st.markdown(f"<h2 style='text-align:center;'>{summary['score']}</h2>", unsafe_allow_html=True)
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 else:
