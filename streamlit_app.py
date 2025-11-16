@@ -15,33 +15,55 @@ st.set_page_config(page_title="🎾 PadelEdge AI – Beta", layout="wide")
 # --------------------------------------------
 # Custom Background Function
 # --------------------------------------------
-def add_background(image_file):
-    """Adds a full-page background image."""
-    with open(image_file, "rb") as f:
-        data = f.read()
-    encoded = base64.b64encode(f.read()).decode()
-    css = f"""
-    <style>
-    [data-testid="stAppViewContainer"] {{
-        background: url("data:image/png;base64,{encoded}");
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-        color: white;
-    }}
-    [data-testid="stHeader"], [data-testid="stToolbar"] {{
-        background: rgba(0,0,0,0);
-    }}
-    [data-testid="stSidebar"] {{
-        background: rgba(255,255,255,0.85);
-    }}
-    </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
-
-# ✅ Add your PNG background
-add_background("background.png")
-
+diff --git a/streamlit_app.py b/streamlit_app.py
+index 1234567..abcdef0 100644
+--- a/streamlit_app.py
++++ b/streamlit_app.py
+@@ -10,19 +10,28 @@ import streamlit as st
+ import base64
+ 
+ 
+-def add_background(image_file):
+-    """Adds a full-page background image."""
+-    with open(image_file, "rb") as f:
+-        data = f.read()
+-        encoded = base64.b64encode(f.read()).decode()
+-
+-    css = f"""
+-    <style>
+-    [data-testid="stAppViewContainer"] {{
+-        background-image: url("data:image/png;base64,{encoded}");
+-        background-size: cover;
+-        background-position: center;
+-        background-repeat: no-repeat;
+-    }}
+-    </style>
+-    """
+-    st.markdown(css, unsafe_allow_html=True)
++def add_background(image_file: str):
++    """Adds a full-page background image using base64 encoding."""
++    try:
++        with open(image_file, "rb") as f:
++            data = f.read()
++            encoded = base64.b64encode(data).decode()
++
++        css = f"""
++        <style>
++        [data-testid="stAppViewContainer"] {{
++            background-image: url("data:image/png;base64,{encoded}");
++            background-size: cover;
++            background-position: center;
++            background-repeat: no-repeat;
++        }}
++        </style>
++        """
++
++        st.markdown(css, unsafe_allow_html=True)
++
++    except FileNotFoundError:
++        st.error(f"❌ Background image not found: {image_file}")
++    except Exception as e:
++        st.error(f"❌ Error loading background: {e}")
 # --------------------------------------------
 # Custom CSS for Overlay Dashboard
 # --------------------------------------------
