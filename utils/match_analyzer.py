@@ -1,21 +1,22 @@
+import numpy as np
+
 def analyze_match(shots):
-    winners = forced_errors = unforced_errors = 0
-    total_points = 0
-
-    for i, stroke in enumerate(shots):
-        # Super simple logic — you can refine later:
-        if "smash" in stroke or "gancho" in stroke:
-            winners += 1
-        elif "volley" in stroke or "bandeja" in stroke:
-            forced_errors += 1
-        else:
-            unforced_errors += 1
-        total_points += 1
-
-    return {
-        "winners": winners,
-        "forced_errors": forced_errors,
-        "unforced_errors": unforced_errors,
-        "points_played": total_points,
-        "score": f"{winners} - {forced_errors + unforced_errors}"
+    summary = {
+        "Bandeja": 0,
+        "Vibora": 0,
+        "Smash": 0,
+        "Volley": 0,
+        "Other": 0,
     }
+
+    for s in shots:
+        shot_type = s["type"]
+        if shot_type in summary:
+            summary[shot_type] += 1
+        else:
+            summary["Other"] += 1
+
+    # Placeholder scoring logic (customize later)
+    score = f"{summary['Bandeja'] + summary['Smash']} – {summary['Vibora'] + summary['Volley']}"
+
+    return summary, score
