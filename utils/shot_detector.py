@@ -1,23 +1,23 @@
-import numpy as np
 import joblib
-from utils.video_processor import extract_keypoints_from_video
+import numpy as np
 
 MODEL_PATH = "models/shot_classifier.pkl"
-
-# Load model once
 shot_model = joblib.load(MODEL_PATH)
+
 
 def detect_shots(keypoints, segment_size=25):
     """
-    Detect shots by sliding window across keypoints.
-    Returns list of: {type, timestamp_frame}
+    Sliding window detection.
+    Returns list of events:
+      { "type": <label>, "frame": <frame number> }
     """
 
     results = []
-    total_frames = len(keypoints)
 
-    for i in range(0, total_frames - segment_size, segment_size):
-        segment = keypoints[i:i + segment_size]
+    num_frames = len(keypoints)
+
+    for i in range(0, num_frames - segment_size, segment_size):
+        segment = keypoints[i : i + segment_size]
         feature_vec = segment.flatten().reshape(1, -1)
 
         pred = shot_model.predict(feature_vec)[0]
