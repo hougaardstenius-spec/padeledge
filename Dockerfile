@@ -1,38 +1,19 @@
-# -------------------------------------------------
-# BASE IMAGE
-# -------------------------------------------------
-FROM python:3.10
+FROM python:3.10-bookworm
 
-# -------------------------------------------------
-# SYSTEM DEPENDENCIES
-# -------------------------------------------------
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+    libgl1 \
+    libglx-mesa0 \
     libglib2.0-0 \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# -------------------------------------------------
-# WORKDIR
-# -------------------------------------------------
 WORKDIR /app
 
-# -------------------------------------------------
-# COPY PROJECT
-# -------------------------------------------------
-COPY . /app
+COPY . .
 
-# -------------------------------------------------
-# INSTALL PYTHON REQS
-# -------------------------------------------------
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
 
-# -------------------------------------------------
-# EXPOSE PORT
-# -------------------------------------------------
 EXPOSE 8501
 
-# -------------------------------------------------
-# START STREAMLIT
-# -------------------------------------------------
 CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
