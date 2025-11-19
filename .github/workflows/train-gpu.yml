@@ -1,0 +1,17 @@
+name: GPU Train via RunPod
+
+on:
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger RunPod job
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.RUNPOD_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"input":{"repo":"https://github.com/<your-repo>","script":"scripts/train_shot_model.py"}}' \
+            https://api.runpod.ai/v2/<your-endpoint>/run
