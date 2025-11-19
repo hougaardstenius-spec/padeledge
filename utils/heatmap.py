@@ -1,40 +1,29 @@
 # utils/heatmap.py
 import numpy as np
 import matplotlib.pyplot as plt
-import cv2
 
-def generate_heatmap_xy(keypoint_sequences, save_path="data/heatmap.png"):
+def generate_heatmap_xy(keypoint_sequences, out_path="data/heatmaps/latest.png"):
     """
-    Creates a 2D heatmap of shot impact positions
-    using the wrist keypoint (x,y).
-
-    Args:
-        keypoint_sequences: list of np.arrays (frames, keypoints)
-        save_path: output file
-    Returns:
-        save_path
+    keypoint_sequences: np.array (frames, landmarks*3)
+    We use right wrist index (MediaPipe: 16) -> x=idx*3, y=idx*3+1
     """
+    if keypoint_sequences is None or len(keypoint_sequences) == 0:
+        return None
     xs, ys = [], []
-
     for kp in keypoint_sequences:
-        if kp is None or kp.size == 0:
+        try:
+            x = kp[16*3]
+            y = kp[16*3 + 1]
+            xs.append(x)
+            ys.append(y)
+        except Exception:
             continue
-
-        # Wrist index: MediaPipe Pose → right wrist = 16
-        wrist_x = kp[:, 16 * 3]
-        wrist_y = kp[:, 16 * 3 + 1]
-
-        xs.extend(wrist_x)
-        ys.extend(wrist_y)
-
-    xs = np.array(xs)
-    ys = np.array(ys)
-
-    plt.figure(figsize=(5, 4))
-    plt.hist2d(xs, ys, bins=35)
+    if len(xs) == 0:
+        return None
+    plt.figure(figsize=(5,4))
+    plt.hist2d(xs, ys, bins=40, cmap='inferno')
     plt.colorbar()
-    plt.title("Shot Impact Heatmap")
-    plt.savefig(save_path, dpi=140)
+    plt.gca().invert_yaxis()  # optional depending on coord system
+    plt.savefig(out_path, dpi=150, bbox_inches='tight')
     plt.close()
-
-    return save_path
+    return out_path
