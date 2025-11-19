@@ -1,32 +1,20 @@
 # utils/timeline.py
-import numpy as np
-
 SHOT_COLORS = {
-    "bandeja": "#2E86C1",
-    "vibora": "#D68910",
-    "derecha": "#27AE60",
-    "reves": "#8E44AD",
-    "smash": "#C0392B",
-    "unknown": "#7F8C8D"
+    "bandeja": "#00ffb4",
+    "vibora": "#00c3ff",
+    "smash": "#ff6b6b",
+    "volley": "#ffd166",
+    "forehand": "#a78bfa",
+    "backhand": "#7dd3fc",
+    "other": "#9ca3af"
 }
 
-def build_timeline(predictions, timestamps):
-    """
-    Build structured timeline event objects.
-
-    Args:
-        predictions (list[str])
-        timestamps (list[float])
-    Returns:
-        list[dict]
-    """
-    timeline = []
-
-    for shot, t in zip(predictions, timestamps):
-        timeline.append({
+def build_timeline(preds, timestamps):
+    events = []
+    for p, t in zip(preds, timestamps):
+        events.append({
+            "shot": p,
             "time": float(t),
-            "shot": shot,
-            "color": SHOT_COLORS.get(shot, SHOT_COLORS["unknown"])
+            "color": SHOT_COLORS.get(p.lower(), SHOT_COLORS["other"])
         })
-
-    return timeline
+    return events
