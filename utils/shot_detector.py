@@ -1,27 +1,41 @@
-# utils/shot_detector.py
+# --------------------------------------------
+# IMPORTS
+# --------------------------------------------
+import os
 import joblib
 import numpy as np
-from utils.video_processor import extract_keypoints_from_video
 
-MODEL_PATH = "models/shot_classifier.pkl"
+# (andre imports du måske har)
+# from utils.video_processor import extract_keypoints_from_video
 
+
+# --------------------------------------------
+# MODEL PATH SETUP (indsæt denne del)
+# --------------------------------------------
+MODEL_PATH = os.path.join(
+    os.path.dirname(__file__), 
+    "..", 
+    "models", 
+    "shot_classifier.pkl"
+)
+
+MODEL_PATH = os.path.abspath(MODEL_PATH)
+
+
+# --------------------------------------------
+# SHOT DETECTOR CLASS
+# --------------------------------------------
 class ShotDetector:
     def __init__(self):
+        # Fail-safe hvis modellen mangler
+        if not os.path.exists(MODEL_PATH):
+            raise FileNotFoundError(
+                f"❌ Model file not found at: {MODEL_PATH}\n"
+                f"Make sure 'models/shot_classifier.pkl' exists and is included in your repository."
+            )
+
+        # Load modellen
         self.model = joblib.load(MODEL_PATH)
 
-    def analyze(self, video_path):
-        """
-        Returns:
-            predictions (list[str])
-            timestamps (list[float])
-            keypoint_sequences (list[np.array])
-        """
-        keypoints, timestamps = extract_keypoints_from_video(video_path, return_timestamps=True)
-
-        if keypoints is None or len(keypoints) == 0:
-            return [], [], []
-
-        X = [kp.flatten() for kp in keypoints]
-        preds = self.model.predict(X)
-
-        return preds, timestamps, keypoints
+    def predict(self, feature_vector):
+        return self.model.predict([feature_vector])[0]
