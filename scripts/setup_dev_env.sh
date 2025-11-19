@@ -1,113 +1,82 @@
 #!/usr/bin/env bash
 
+set -e
+
 echo "==============================="
-echo "🔥 PadelEdge Auto Dev Setup"
+echo "🔥 PadelEdge Dev Environment Setup"
 echo "==============================="
 
-# --------- CHECK BREW ---------
-if ! command -v brew &> /dev/null
-then
-    echo "⚠️ Homebrew ikke fundet. Installerer..."
+# --------------------------------------------
+# 1. Ensure Homebrew exists
+# --------------------------------------------
+if ! command -v brew &> /dev/null; then
+    echo "⚠️ Homebrew ikke fundet — installerer..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 else
     echo "✔ Homebrew OK"
 fi
 
-# --------- INSTALL PYENV ---------
-if ! command -v pyenv &> /dev/null
-then
-    echo "⚠️ pyenv ikke fundet. Installerer..."
-    brew install pyenv
+# --------------------------------------------
+# 2. Install Python 3.10 via brew
+# --------------------------------------------
+if ! brew ls --versions python@3.10 >/dev/null; then
+    echo "📦 Installerer Python 3.10..."
+    brew install python@3.10
 else
-    echo "✔ pyenv OK"
+    echo "✔ Python@3.10 findes allerede"
 fi
 
-# --------- INSTALL PYTHON 3.10 ---------
-PYTHON_VERSION="3.10.13"
+PYTHON_BIN="/opt/homebrew/bin/python3.10"
 
-if ! pyenv versions | grep -q "$PYTHON_VERSION"; then
-    echo "📦 Installerer Python $PYTHON_VERSION..."
-    CFLAGS="-I$(brew --prefix)/opt/zlib/include" \
-    LDFLAGS="-L$(brew --prefix)/opt/zlib/lib" \
-    pyenv install $PYTHON_VERSION
-else
-    echo "✔ Python $PYTHON_VERSION findes allerede"
-fi
+echo "➡ Bruger Python binary: $PYTHON_BIN"
 
-# --------- SET LOCALLY ---------
-echo "📌 Sætter Python version lokalt..."
-pyenv local $PYTHON_VERSION
-
-# --------- CREATE VENV ---------
-echo "🐍 Opretter .venv..."
+# --------------------------------------------
+# 3. Remove old venv if any
+# --------------------------------------------
+echo "🧹 Rydder gammel .venv..."
 rm -rf .venv
-python -m venv .venv
 
-echo "📌 Aktivér venv manuelt efter setup:"
-echo "   source .venv/bin/activate"
+# --------------------------------------------
+# 4. Create venv with Python 3.10
+# --------------------------------------------
+echo "🐍 Opretter nyt .venv med Python 3.10..."
+$PYTHON_BIN -m venv .venv
 
-# ------- INSTALL DEPENDENCIES -------
-echo "📦 Installerer requirements..."
+# --------------------------------------------
+# 5. Activate venv
+# --------------------------------------------
+echo "🔌 Aktiverer venv..."
 source .venv/bin/activate
-pip install --upgrade pip
-pip install --upgrade wheel setuptools
 
-if [ -f "requirements.txt" ]; then
-    pip install -r requirements.txt
-else
-    echo "⚠️ Ingen requirements.txt fundet!"
-fi
+echo "✔ Python version i venv:"
+python --version
 
-# --------- CREATE .vscode SETTINGS ---------
-echo "🛠 Opretter .vscode setup..."
+# --------------------------------------------
+# 6. Install pip deps
+# --------------------------------------------
+echo "📦 Installerer pip dependencies..."
+pip install --upgrade pip wheel setuptools
 
-mkdir -p .vscode
-
-cat > .vscode/settings.json <<EOF
-{
-    "python.defaultInterpreterPath": "\${workspaceFolder}/.venv/bin/python",
-    "python.terminal.activateEnvironment": true,
-    "python.formatting.provider": "black",
-    "python.linting.enabled": true,
-    "python.linting.flake8Enabled": true,
-    "editor.formatOnSave": true,
-    "python.analysis.extraPaths": [
-        "\${workspaceFolder}",
-        "\${workspaceFolder}/utils",
-        "\${workspaceFolder}/scripts"
-    ]
+pip install -r requirements.txt || {
+    echo "❌ Requirements failed — MediaPipe muligvis ikke kompatibel"
 }
-EOF
 
-cat > .vscode/extensions.json <<EOF
-{
-    "recommendations": [
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "ms-python.black-formatter",
-        "ms-python.flake8",
-        "ms-azuretools.vscode-docker"
-    ]
-}
-EOF
-
-# --------- MEDIA PIPE CHECK ---------
-echo "🔍 Tester MediaPipe installation..."
+# --------------------------------------------
+# 7. Test MediaPipe
+# --------------------------------------------
+echo "🔍 Tester MediaPipe install..."
 python - << 'EOF'
+import sys
 try:
     import mediapipe as mp
-    print("✔ MediaPipe OK")
+    print("✔ MediaPipe import OK")
 except Exception as e:
-    print("❌ MediaPipe kunne ikke importeres:", e)
+    print("❌ MediaPipe fejler:", e)
+    print("Python version:", sys.version)
 EOF
 
-# --------- FINAL ---------
 echo "==============================="
-echo "🎉 Dev Setup Færdigt!"
+echo "🎉 Setup færdigt!"
 echo "==============================="
-echo ""
-echo "👉 Kør nu:"
+echo "👉 Husk at aktivere miljøet:"
 echo "source .venv/bin/activate"
-echo ""
-echo "👉 VS Code bruger nu automatisk .venv"
-echo ""
