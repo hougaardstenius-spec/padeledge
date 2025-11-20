@@ -1,12 +1,9 @@
+import sys
 import os
-import glob
-import numpy as np
-import joblib
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from utils.video_processor import extract_keypoints_from_video
+from utils.shot_detector import ShotDetector
 
 DATA_DIR = "data/samples"
 MODEL_PATH = "models/shot_classifier.pkl"
