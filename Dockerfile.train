@@ -1,4 +1,4 @@
-FROM python:3.10-bookworm
+FROM python:3.10-slim-bookworm
 
 RUN apt-get update && apt-get install -y \
     libgl1 \
@@ -9,15 +9,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
 COPY . /app
 
-RUN pip install --upgrade pip
+RUN pip install --upgrade pip wheel setuptools
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Create log folder
 RUN mkdir -p /var/log/padeledge
 
-# Fix: use python3 in cron, not python
+# Cron job – train every 30 minutes
 RUN echo "*/30 * * * * python3 /app/scripts/train_shot_model.py >> /var/log/padeledge/train.log 2>&1" > /etc/cron.d/train
 RUN chmod 0644 /etc/cron.d/train
 RUN crontab /etc/cron.d/train
