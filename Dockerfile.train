@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p /var/log/padeledge
 
 # Add cron job (run every 30 minutes)
-RUN echo "*/30 * * * * python /app/scripts/train_shot_model.py >> /var/log/padeledge/train.log 2>&1" > /etc/cron.d/train
+RUN echo "*/30 * * * * python3 /app/scripts/train_shot_model.py >> /var/log/padeledge/train.log 2>&1" > /etc/cron.d/train
 RUN chmod 0644 /etc/cron.d/train
 RUN crontab /etc/cron.d/train
 
