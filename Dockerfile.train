@@ -1,22 +1,33 @@
-FROM python:3.10-slim
+# ---------------------------------------------------------
+# TRAINING CONTAINER (STABLE + MEDIA PIPE COMPATIBLE)
+# ---------------------------------------------------------
+FROM python:3.10-bookworm
 
+# Install deps needed for OpenCV + MediaPipe + cron
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglx-mesa0 \
     libglib2.0-0 \
+    ffmpeg \
     cron \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# Copy project
 COPY . /app
 
-RUN pip install --no-cache-dir --upgrade pip
+# Install Python deps
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Cron job: train model every 30 minutes
-RUN echo "*/30 * * * * python /app/scripts/train_shot_model.py >> /var/log/cron.log 2>&1" > /etc/cron.d/train
+# Create log folder
+RUN mkdir -p /var/log/padeledge
+
+# Add cron job (run every 30 minutes)
+RUN echo "*/30 * * * * python /app/scripts/train_shot_model.py >> /var/log/padeledge/train.log 2>&1" > /etc/cron.d/train
 RUN chmod 0644 /etc/cron.d/train
 RUN crontab /etc/cron.d/train
 
+# Start cron in foreground
 CMD ["cron", "-f"]
