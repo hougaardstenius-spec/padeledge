@@ -10,6 +10,9 @@ from utils.metrics import load_metrics_summary
 from utils.training_api import run_training_now, load_training_log
 from utils.labeling_ui import render_labeling_ui
 
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+AUTO_RETRAIN_LOG = os.path.join(BASE_DIR, "models", "auto_retrain.log")
+
 
 def _render_overview():
     st.subheader("📌 Overblik")
@@ -48,7 +51,7 @@ def _render_overview():
     if not metrics:
         st.info(
             "Ingen metrics fundet endnu. "
-            "Du kan udvide træningsscriptet til at skrive `models/metrics.json`."
+            "Træningsscriptet skriver til `models/metrics.json`, når træning er kørt succesfuldt."
         )
     else:
         acc = metrics.get("accuracy", None)
@@ -64,7 +67,8 @@ def _render_overview():
                         "Label": label,
                         "Precision": m.get("precision"),
                         "Recall": m.get("recall"),
-                        "F1": m.get("f1-score") or m.get("f1"),
+                        "F1": m.get("f1"),
+                        "Support": m.get("support"),
                     }
                 )
             mdf = pd.DataFrame(rows)
@@ -78,7 +82,7 @@ def _render_dataset_tab():
     df = get_dataset_overview()
     if df.empty:
         st.warning(
-            "Ingen træningsdata fundet i `data/samples`. "
+            "Ingen træningsdata fundet i `data/samples`.\n"
             "Tilføj klip via 'Labeling'-fanen eller direkte i filsystemet."
         )
         return
@@ -133,8 +137,18 @@ def _render_versions_tab():
     st.dataframe(df, use_container_width=True)
 
     st.caption(
-        "Hver gang du træner og arkiverer, bør en ny fil blive tilføjet i `models/archive/`."
+        "Hver gang du træner, arkiveres tidligere modeller automatisk i `models/archive/`."
     )
+
+
+def _load_auto_retrain_log() -> str:
+    if not os.path.exists(AUTO_RETRAIN_LOG):
+        return "Ingen auto-retrain logfil fundet endnu."
+    try:
+        with open(AUTO_RETRAIN_LOG, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        return f"Fejl ved læsning af auto-retrain log: {e}"
 
 
 def _render_training_tab():
@@ -142,7 +156,8 @@ def _render_training_tab():
 
     st.write(
         "Klik på knappen for at køre træningsscriptet `scripts/train_shot_model.py` direkte "
-        "fra appen. Det vil bruge alle videoer i `data/samples` og opdatere modellen."
+        "fra appen. Det vil bruge alle videoer i `data/samples`, træne modellen, "
+        "opdatere `models/shot_classifier.pkl` og skrive metrics + arkiver."
     )
 
     if st.button("🔁 Kør træning nu", type="primary"):
@@ -150,6 +165,13 @@ def _render_training_tab():
             logs = run_training_now()
         st.success("Træning gennemført (eller forsøgt). Se log nedenfor.")
         st.text_area("Træningslog (seneste run)", logs, height=300)
+
+        st.markdown("### Opdaterede metrics")
+        metrics = load_metrics_summary()
+        if metrics:
+            st.json(metrics)
+        else:
+            st.info("Ingen metrics kunne læses efter træning.")
     else:
         st.info("Ingen manuel træning kørt i denne session endnu.")
 
@@ -157,17 +179,23 @@ def _render_training_tab():
     log_text = load_training_log()
     st.text_area("Tidligere log", log_text, height=250)
 
+    st.markdown("---")
+    st.subheader("🤖 Auto-retrain log (fra ShotDetector)")
+
+    auto_log = _load_auto_retrain_log()
+    st.text_area("Auto-retrain log", auto_log, height=250)
+
 
 def _render_active_learning_tab():
     st.subheader("🧠 Active Learning (V2 placeholder)")
     st.write(
         "Her kan du på sigt vise klip, hvor modellen er usikker, og lade brugeren "
-        "label dem manuelt. For nu kan du bruge 'Labeling'-fanen til at flytte og label "
-        "klip fra fx `data/uncertain`."
+        "label dem manuelt. Lige nu kan du bruge 'Labeling'-fanen til at label klip "
+        "fra fx `data/uncertain`."
     )
     st.info(
-        "Når du senere tilføjer logik i din inferens til at gemme usikre klip i "
-        "`data/uncertain`, vil de automatisk dukke op i 'Labeling'-fanen."
+        "Når inferens-logik senere gemmer usikre klip i `data/uncertain`, vil de "
+        "dukke op under 'Labeling' → 'Review uncertain clips'."
     )
 
 
@@ -178,7 +206,7 @@ def render_training_dashboard():
     st.title("🧠 Training Dashboard V2")
     st.write(
         "Overblik over træningsdata, modelversioner, manuelle træningskørsler og "
-        "et enkelt labeling-UI til at udvide dit dataset."
+        "et labeling-UI til at udvide dit dataset."
     )
 
     tabs = st.tabs(
