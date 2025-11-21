@@ -1,58 +1,62 @@
-# utils/video_processor.py
 import cv2
 import numpy as np
-import mediapipe as mp
 
-mp_pose = mp.solutions.pose
 
-def extract_keypoints_from_video(filepath, max_frames=120, frame_step=3, return_timestamps=False):
+def extract_keypoints_from_video(video_path: str):
     """
-    Extract pose keypoints using MediaPipe Pose.
-    Returns: np.array shape (N_frames, N_landmarks*3) or (kp_seq, timestamps)
+    Mediapipe-free version.
+    Extracts extremely lightweight motion+pose proxy features.
+
+    This function:
+    - Reads video frames
+    - Converts to grayscale
+    - Computes frame differences
+    - Extracts simple movement statistics per frame
+    - Returns a (num_frames, feature_dim) numpy array
     """
-    cap = cv2.VideoCapture(filepath)
+
+    cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        return (None, None) if return_timestamps else None
+        print("❌ Could not open video:", video_path)
+        return None
 
-    pose = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5)
-    keypoints = []
-    timestamps = []
-    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-    frame_idx = 0
-    sampled = 0
+    prev = None
+    feature_list = []
 
     while True:
         ret, frame = cap.read()
         if not ret:
             break
-        if frame_idx % frame_step != 0:
-            frame_idx += 1
+
+        # Resize for speed + consistency
+        frame = cv2.resize(frame, (256, 144))
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = gray.astype("float32")
+
+        if prev is None:
+            prev = gray
             continue
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        res = pose.process(rgb)
-        if res.pose_landmarks:
-            kp = []
-            for lm in res.pose_landmarks.landmark:
-                kp.extend([lm.x, lm.y, lm.z])
-            keypoints.append(kp)
-            timestamps.append(frame_idx / fps)
-            sampled += 1
-        frame_idx += 1
-        if sampled >= max_frames:
-            break
+
+        diff = cv2.absdiff(gray, prev)
+
+        # Feature extraction (simple motion descriptors)
+        mean_motion = np.mean(diff)
+        max_motion = np.max(diff)
+        std_motion = np.std(diff)
+
+        # Histogram-based motion
+        hist = cv2.calcHist([diff.astype("uint8")], [0], None, [16], [0, 256])
+        hist = hist.flatten()
+
+        feature_vector = np.concatenate([[mean_motion, max_motion, std_motion], hist])
+        feature_list.append(feature_vector)
+
+        prev = gray
 
     cap.release()
-    pose.close()
 
-    if len(keypoints) == 0:
-        return (None, None) if return_timestamps else None
+    if len(feature_list) == 0:
+        return None
 
-    # pad with last frame if needed
-    while len(keypoints) < max_frames:
-        keypoints.append(keypoints[-1])
-        timestamps.append(timestamps[-1] if timestamps else 0.0)
-
-    arr = np.array(keypoints)
-    if return_timestamps:
-        return arr, np.array(timestamps[:arr.shape[0]])
-    return arr
+    return np.array(feature_list)
