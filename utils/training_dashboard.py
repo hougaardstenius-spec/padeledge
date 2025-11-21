@@ -54,6 +54,9 @@ def _render_overview():
             "Træningsscriptet skriver til `models/metrics.json`, når træning er kørt succesfuldt."
         )
     else:
+        if metrics.get("dummy"):
+            st.warning("⚠️ Seneste model er en dummy-model (ingen rigtig træning).")
+
         acc = metrics.get("accuracy", None)
         if acc is not None:
             st.metric("Accuracy", f"{acc:.3f}")
@@ -113,6 +116,38 @@ def _render_dataset_tab():
             with cols[i % 3]:
                 st.caption(os.path.basename(path))
                 st.video(path)
+
+
+def _render_health_tab():
+    st.subheader("🩺 Dataset Health")
+
+    df = get_dataset_overview()
+    if df.empty:
+        st.warning("Ingen træningsdata tilgængelig. Kan ikke beregne health.")
+        return
+
+    total_clips = int(df["Num Clips"].sum())
+    st.write(f"Samlet antal klip i dataset: **{total_clips}**")
+
+    # Class imbalance
+    min_clips = int(df["Num Clips"].min())
+    max_clips = int(df["Num Clips"].max())
+
+    st.write(f"Mindste antal klip i en shot-type: **{min_clips}**")
+    st.write(f"Største antal klip i en shot-type: **{max_clips}**")
+
+    if min_clips == 0:
+        st.error("❌ Der findes shot-typer med 0 klip. Modellen kan ikke lære dem.")
+    elif min_clips < 5:
+        st.warning("⚠️ Nogle shot-typer har meget få klip (<5). Modellen bliver ustabil dér.")
+
+    if max_clips > 0 and min_clips > 0 and max_clips / max(min_clips, 1) > 10:
+        st.warning(
+            "⚠️ Dataset er stærkt ubalanceret (nogle klasser har >10x flere klip end andre)."
+        )
+
+    st.markdown("### Fordeling pr. shot-type")
+    st.bar_chart(df.set_index("Shot Type")["Num Clips"])
 
 
 def _render_versions_tab():
@@ -213,6 +248,7 @@ def render_training_dashboard():
         [
             "Overview",
             "Dataset",
+            "Health",
             "Labeling",
             "Versions",
             "Training",
@@ -225,10 +261,12 @@ def render_training_dashboard():
     with tabs[1]:
         _render_dataset_tab()
     with tabs[2]:
-        render_labeling_ui()
+        _render_health_tab()
     with tabs[3]:
-        _render_versions_tab()
+        render_labeling_ui()
     with tabs[4]:
-        _render_training_tab()
+        _render_versions_tab()
     with tabs[5]:
+        _render_training_tab()
+    with tabs[6]:
         _render_active_learning_tab()
