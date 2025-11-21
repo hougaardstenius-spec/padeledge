@@ -133,6 +133,9 @@ def main():
     update_shot_detector()
     print("🎉 Training complete.")
 
+# Sicherheits-check: ensure file is not empty
+if os.path.getsize(MODEL_PATH) < 4096:
+    raise RuntimeError("❌ Model file too small — training likely failed")
 
 if __name__ == "__main__":
     main()
