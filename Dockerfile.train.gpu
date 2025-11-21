@@ -1,0 +1,11 @@
+FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
+
+WORKDIR /app
+COPY . /app
+
+RUN pip install --upgrade pip wheel setuptools
+RUN pip install -r requirements.txt
+
+# her kan du senere tilføje torch, torchvision, osv. hvis du vil bruge GPU aktivt
+
+CMD ["python", "scripts/train_shot_model.py"]
