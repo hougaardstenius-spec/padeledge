@@ -1,7 +1,7 @@
 import os
 import glob
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MODELS_DIR = os.path.join(BASE_DIR, "models")
@@ -31,7 +31,6 @@ def get_current_model_overview() -> Dict:
     classic_path = os.path.join(MODELS_DIR, "shot_classifier.pkl")
     latest_path = os.path.join(LATEST_DIR, "shot_classifier.pkl")
 
-    # foretræk latest/, hvis den findes
     effective_path = latest_path if os.path.exists(latest_path) else classic_path
 
     if os.path.exists(effective_path):
@@ -52,16 +51,11 @@ def get_current_model_overview() -> Dict:
 
 
 def list_model_versions() -> List[Dict]:
-    """
-    Lister arkiverede modeller i models/archive/.
-    """
     versions = []
     if not os.path.isdir(ARCHIVE_DIR):
         return versions
 
-    for path in sorted(
-        glob.glob(os.path.join(ARCHIVE_DIR, "shot_classifier_*.pkl"))
-    ):
+    for path in sorted(glob.glob(os.path.join(ARCHIVE_DIR, "shot_classifier_*.pkl"))):
         ts = datetime.fromtimestamp(os.path.getmtime(path))
         size = _format_bytes(os.path.getsize(path))
         name = os.path.basename(path)
