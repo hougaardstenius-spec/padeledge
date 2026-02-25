@@ -4,6 +4,13 @@ import numpy as np
 import time
 import subprocess
 import sys
+import cv2
+
+from utils.video_processor import (
+    extract_keypoints_from_video,
+    summarize_feature_sequence,
+    MODEL_FRAMES,
+)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "shot_classifier.pkl")
@@ -69,6 +76,55 @@ class ShotDetector:
 
     def analyze(self, video_path: str):
         """
-        Placeholder — your real analyzer in training_dashboard V2.
+        Baseline analyzer using sliding windows over motion features.
+        Returns: (predicted_labels, timestamps_sec, representative_keypoints)
         """
-        raise NotImplementedError("You said you'd implement analyze() separately.")
+        keypoint_seq = extract_keypoints_from_video(video_path)
+        if keypoint_seq is None or len(keypoint_seq) == 0:
+            return [], [], []
+
+        cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+        cap.release()
+
+        n_frames = len(keypoint_seq)
+        window_frames = max(int(fps * 0.8), 8)
+        stride = max(window_frames // 2, 4)
+
+        preds = []
+        timestamps = []
+        rep_keypoints = []
+
+        if n_frames <= window_frames:
+            features = summarize_feature_sequence(
+                keypoint_seq, target_frames=MODEL_FRAMES
+            )
+            if features is not None:
+                preds.append(self.predict(features))
+                timestamps.append(float(n_frames / 2.0 / fps))
+                rep_keypoints.append(keypoint_seq[n_frames // 2])
+            return preds, timestamps, rep_keypoints
+
+        for start in range(0, n_frames - window_frames + 1, stride):
+            end = start + window_frames
+            window_seq = keypoint_seq[start:end]
+            features = summarize_feature_sequence(
+                window_seq, target_frames=MODEL_FRAMES
+            )
+            if features is None:
+                continue
+
+            pred = self.predict(features)
+            mid = start + (window_frames // 2)
+            timestamp = float(mid / fps)
+
+            if preds and preds[-1] == pred:
+                # Merge consecutive identical windows to reduce duplicate events.
+                timestamps[-1] = timestamp
+                rep_keypoints[-1] = keypoint_seq[mid]
+            else:
+                preds.append(pred)
+                timestamps.append(timestamp)
+                rep_keypoints.append(keypoint_seq[mid])
+
+        return preds, timestamps, rep_keypoints

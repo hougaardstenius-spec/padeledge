@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+MODEL_FRAMES = 30
+
 
 def extract_keypoints_from_video(video_path: str):
     """
@@ -60,3 +62,37 @@ def extract_keypoints_from_video(video_path: str):
         return None
 
     return np.array(feature_list)
+
+
+def summarize_feature_sequence(feature_seq: np.ndarray, target_frames: int = MODEL_FRAMES):
+    """
+    Converts a variable-length frame feature sequence to a fixed-size vector.
+    """
+    if feature_seq is None or len(feature_seq) == 0:
+        return None
+
+    arr = np.asarray(feature_seq, dtype=np.float32)
+    if arr.ndim != 2:
+        return None
+
+    n_frames, feat_dim = arr.shape
+
+    if n_frames == target_frames:
+        sampled = arr
+    else:
+        # Linear interpolation indices keep dimensionality fixed across clip lengths.
+        src_idx = np.arange(n_frames, dtype=np.float32)
+        dst_idx = np.linspace(0, n_frames - 1, num=target_frames, dtype=np.float32)
+        sampled = np.empty((target_frames, feat_dim), dtype=np.float32)
+        for d in range(feat_dim):
+            sampled[:, d] = np.interp(dst_idx, src_idx, arr[:, d])
+
+    return sampled.flatten()
+
+
+def extract_clip_features(video_path: str, target_frames: int = MODEL_FRAMES):
+    """
+    Convenience helper for training/inference from a video file path.
+    """
+    seq = extract_keypoints_from_video(video_path)
+    return summarize_feature_sequence(seq, target_frames=target_frames)
