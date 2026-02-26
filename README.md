@@ -60,3 +60,21 @@ Only one training entrypoint is supported:
 - `scripts/train_shot_model.py`
 
 Legacy scripts under `training/` are archived and not used by the app.
+
+## Label Protocol Files
+
+Use the template:
+
+- `data/labels_template.csv`
+
+Validate your label file:
+
+```bash
+.venv/bin/python scripts/validate_labels.py --labels data/labels.csv --samples-root data/samples
+```
+
+Useful option when preparing labels before clips are copied:
+
+```bash
+.venv/bin/python scripts/validate_labels.py --labels data/labels.csv --allow-missing-files
+```
