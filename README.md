@@ -67,6 +67,12 @@ Use the template:
 
 - `data/labels_template.csv`
 
+Generate a draft labels file from clips under `data/samples`:
+
+```bash
+.venv/bin/python scripts/bootstrap_labels.py --samples-root data/samples --output data/labels.csv --default-match-id match_001 --default-player-id player_001
+```
+
 Validate your label file:
 
 ```bash
