@@ -70,11 +70,12 @@ def test_shot_detector_analyze_returns_valid_structure(tmp_path, monkeypatch):
 
     importlib.reload(shot_detector)
     detector = shot_detector.ShotDetector()
-    preds, timestamps, keypoints = detector.analyze(str(SAMPLE_BANDEJA))
+    preds, timestamps, keypoints, confidences = detector.analyze(str(SAMPLE_BANDEJA))
 
     assert isinstance(preds, list)
     assert isinstance(timestamps, list)
     assert isinstance(keypoints, list)
-    assert len(preds) == len(timestamps) == len(keypoints)
+    assert isinstance(confidences, list)
+    assert len(preds) == len(timestamps) == len(keypoints) == len(confidences)
     assert len(preds) > 0
     assert all(isinstance(t, float) for t in timestamps)

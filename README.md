@@ -20,6 +20,12 @@ python3.10 -m venv .venv
 Expected artifacts:
 - `models/shot_classifier.pkl`
 - `models/metrics.json`
+- `models/release_report.json`
+
+Release gate thresholds can be configured with env vars:
+
+- `PADELEDGE_MIN_ACCURACY` (default `0.65`)
+- `PADELEDGE_MIN_MACRO_F1` (default `0.55`)
 
 ### 3) Run app
 
@@ -30,6 +36,10 @@ Expected artifacts:
 Open `http://localhost:8501` and use:
 - `Match Analyzer` for inference on uploaded videos
 - `Training Dashboard` for dataset/model overview
+
+Every upload analysis is logged to:
+
+- `data/analysis_logs/match_analyses.jsonl`
 
 ## Tests
 

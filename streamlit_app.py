@@ -1,5 +1,7 @@
 # streamlit_app.py
 import os
+import json
+from datetime import datetime
 import streamlit as st
 
 # --- Match Analyzer Utils ---
@@ -34,6 +36,13 @@ page = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.caption("PadelEdge Pro • AI Shot Recognition")
 
+
+def log_analysis_event(record: dict):
+    log_path = os.path.join("data", "analysis_logs", "match_analyses.jsonl")
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
 # =========================================================
 #  PAGE 1 — MATCH ANALYZER
 # =========================================================
@@ -66,7 +75,21 @@ if page == "Match Analyzer":
     # Run shot analysis
     # ------------------------------------
     detector = ShotDetector()
-    preds, timestamps, keypoints = detector.analyze(video_path)
+    preds, timestamps, keypoints, confidences = detector.analyze(video_path)
+
+    log_analysis_event(
+        {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "video_name": uploaded.name,
+            "video_path": video_path,
+            "num_events": len(preds),
+            "predictions": preds,
+            "timestamps_sec": timestamps,
+            "confidences": confidences,
+            "model_path": detector.model_path,
+            "model_labels": detector.class_labels,
+        }
+    )
 
     if not preds:
         st.error("Ingen slag fundet.")
@@ -82,6 +105,9 @@ if page == "Match Analyzer":
     for i, ev in enumerate(events):
         with cols[i % 3]:
             st.markdown(f"**{ev['shot'].title()}** — {ev['time']:.2f}s")
+            conf = confidences[i] if i < len(confidences) else None
+            if conf is not None:
+                st.caption(f"Confidence: {conf:.2f}")
             thumb = extract_thumbnail(video_path, ev["time"])
             if thumb:
                 st.image(thumb, width=220)

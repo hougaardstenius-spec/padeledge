@@ -73,6 +73,8 @@ class ShotDetector:
                 )
 
         self.model = joblib.load(MODEL_PATH)
+        self.model_path = MODEL_PATH
+        self.class_labels = list(getattr(self.model, "classes_", []))
         print(f"✅ Model loaded: {MODEL_PATH}")
 
     def predict(self, feature_vector):
@@ -80,14 +82,30 @@ class ShotDetector:
         fv = np.array(feature_vector).flatten().reshape(1, -1)
         return self.model.predict(fv)[0]
 
+    def predict_with_confidence(self, feature_vector):
+        """
+        Predicts a single shot label and confidence.
+        Confidence is max class probability if supported by the model.
+        """
+        fv = np.array(feature_vector).flatten().reshape(1, -1)
+        label = self.model.predict(fv)[0]
+        confidence = None
+        if hasattr(self.model, "predict_proba"):
+            try:
+                probs = self.model.predict_proba(fv)[0]
+                confidence = float(np.max(probs))
+            except Exception:
+                confidence = None
+        return label, confidence
+
     def analyze(self, video_path: str):
         """
         Baseline analyzer using sliding windows over motion features.
-        Returns: (predicted_labels, timestamps_sec, representative_keypoints)
+        Returns: (predicted_labels, timestamps_sec, representative_keypoints, confidences)
         """
         keypoint_seq = extract_keypoints_from_video(video_path)
         if keypoint_seq is None or len(keypoint_seq) == 0:
-            return [], [], []
+            return [], [], [], []
 
         cap = cv2.VideoCapture(video_path)
         fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
@@ -100,16 +118,19 @@ class ShotDetector:
         preds = []
         timestamps = []
         rep_keypoints = []
+        confidences = []
 
         if n_frames <= window_frames:
             features = summarize_feature_sequence(
                 keypoint_seq, target_frames=MODEL_FRAMES
             )
             if features is not None:
-                preds.append(self.predict(features))
+                pred, conf = self.predict_with_confidence(features)
+                preds.append(pred)
                 timestamps.append(float(n_frames / 2.0 / fps))
                 rep_keypoints.append(keypoint_seq[n_frames // 2])
-            return preds, timestamps, rep_keypoints
+                confidences.append(conf)
+            return preds, timestamps, rep_keypoints, confidences
 
         for start in range(0, n_frames - window_frames + 1, stride):
             end = start + window_frames
@@ -120,7 +141,7 @@ class ShotDetector:
             if features is None:
                 continue
 
-            pred = self.predict(features)
+            pred, conf = self.predict_with_confidence(features)
             mid = start + (window_frames // 2)
             timestamp = float(mid / fps)
 
@@ -128,9 +149,11 @@ class ShotDetector:
                 # Merge consecutive identical windows to reduce duplicate events.
                 timestamps[-1] = timestamp
                 rep_keypoints[-1] = keypoint_seq[mid]
+                confidences[-1] = conf
             else:
                 preds.append(pred)
                 timestamps.append(timestamp)
                 rep_keypoints.append(keypoint_seq[mid])
+                confidences.append(conf)
 
-        return preds, timestamps, rep_keypoints
+        return preds, timestamps, rep_keypoints, confidences

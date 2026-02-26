@@ -19,6 +19,12 @@ DATA_DIR = os.getenv("PADELEDGE_DATA_DIR", os.path.join(BASE_DIR, "data", "sampl
 MODEL_PATH = os.getenv("PADELEDGE_MODEL_PATH", os.path.join(BASE_DIR, "models", "shot_classifier.pkl"))
 METRICS_PATH = os.getenv("PADELEDGE_METRICS_PATH", os.path.join(BASE_DIR, "models", "metrics.json"))
 ARCHIVE_DIR = os.getenv("PADELEDGE_ARCHIVE_DIR", os.path.join(BASE_DIR, "models", "archive"))
+RELEASE_REPORT_PATH = os.getenv(
+    "PADELEDGE_RELEASE_REPORT_PATH",
+    os.path.join(BASE_DIR, "models", "release_report.json"),
+)
+MIN_ACCURACY = float(os.getenv("PADELEDGE_MIN_ACCURACY", "0.65"))
+MIN_MACRO_F1 = float(os.getenv("PADELEDGE_MIN_MACRO_F1", "0.55"))
 
 
 def find_training_videos():
@@ -159,19 +165,54 @@ def train_model(verbose=True):
             print("⚠ Trained on full dataset (no holdout metrics available).")
 
     metrics_payload["feature_dim"] = int(X.shape[1]) if X.ndim == 2 else None
+    metrics_payload["model_version"] = datetime.now().strftime("%Y%m%d_%H%M%S")
+    metrics_payload["min_accuracy_gate"] = MIN_ACCURACY
+    metrics_payload["min_macro_f1_gate"] = MIN_MACRO_F1
 
-    _archive_existing_model_if_present()
+    has_existing_model = os.path.exists(MODEL_PATH)
+    gate_evaluated = not metrics_payload.get("dummy", False)
+    gate_passed = True
+    if gate_evaluated:
+        gate_passed = (
+            metrics_payload.get("accuracy", 0.0) >= MIN_ACCURACY
+            and metrics_payload.get("macro_f1", 0.0) >= MIN_MACRO_F1
+        )
+
+    # Cold-start override: if there is no existing model, promote candidate even if gate fails.
+    promoted = gate_passed or (not has_existing_model)
+    archived_previous = None
+    if promoted and has_existing_model:
+        archived_previous = _archive_existing_model_if_present()
+
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     os.makedirs(os.path.dirname(METRICS_PATH), exist_ok=True)
-    joblib.dump(model, MODEL_PATH)
+    os.makedirs(os.path.dirname(RELEASE_REPORT_PATH), exist_ok=True)
+    if promoted:
+        joblib.dump(model, MODEL_PATH)
+
+    metrics_payload["promoted"] = promoted
+    metrics_payload["release_gate_evaluated"] = gate_evaluated
+    metrics_payload["release_gate_passed"] = bool(gate_passed) if gate_evaluated else None
+    metrics_payload["release_gate_blocked"] = bool(
+        gate_evaluated and not gate_passed and has_existing_model
+    )
+    metrics_payload["archived_previous_model"] = archived_previous
+    metrics_payload["active_model_path"] = MODEL_PATH
+
     with open(METRICS_PATH, "w", encoding="utf-8") as f:
+        json.dump(metrics_payload, f, ensure_ascii=False, indent=2)
+    with open(RELEASE_REPORT_PATH, "w", encoding="utf-8") as f:
         json.dump(metrics_payload, f, ensure_ascii=False, indent=2)
 
     if verbose:
-        print(f"✅ Model saved to: {MODEL_PATH}")
+        if promoted:
+            print(f"✅ Model promoted to: {MODEL_PATH}")
+        else:
+            print("⚠ Release gate blocked promotion; existing model kept.")
         print(f"✅ Metrics saved to: {METRICS_PATH}")
+        print(f"✅ Release report saved to: {RELEASE_REPORT_PATH}")
 
-    return True
+    return promoted
 
 
 def main(verbose=False):
