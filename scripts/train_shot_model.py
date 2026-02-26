@@ -17,8 +17,8 @@ from utils.video_processor import extract_clip_features, MODEL_FRAMES
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.getenv("PADELEDGE_DATA_DIR", os.path.join(BASE_DIR, "data", "samples"))
 MODEL_PATH = os.getenv("PADELEDGE_MODEL_PATH", os.path.join(BASE_DIR, "models", "shot_classifier.pkl"))
-METRICS_PATH = os.path.join(BASE_DIR, "models", "metrics.json")
-ARCHIVE_DIR = os.path.join(BASE_DIR, "models", "archive")
+METRICS_PATH = os.getenv("PADELEDGE_METRICS_PATH", os.path.join(BASE_DIR, "models", "metrics.json"))
+ARCHIVE_DIR = os.getenv("PADELEDGE_ARCHIVE_DIR", os.path.join(BASE_DIR, "models", "archive"))
 
 
 def find_training_videos():
@@ -162,6 +162,7 @@ def train_model(verbose=True):
 
     _archive_existing_model_if_present()
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(METRICS_PATH), exist_ok=True)
     joblib.dump(model, MODEL_PATH)
     with open(METRICS_PATH, "w", encoding="utf-8") as f:
         json.dump(metrics_payload, f, ensure_ascii=False, indent=2)

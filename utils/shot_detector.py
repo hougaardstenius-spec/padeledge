@@ -13,9 +13,15 @@ from utils.video_processor import (
 )
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "shot_classifier.pkl")
-TRAIN_SCRIPT = os.path.join(BASE_DIR, "scripts", "train_shot_model.py")
-LOG_PATH = os.path.join(BASE_DIR, "models", "auto_retrain.log")
+MODEL_PATH = os.getenv(
+    "PADELEDGE_MODEL_PATH", os.path.join(BASE_DIR, "models", "shot_classifier.pkl")
+)
+TRAIN_SCRIPT = os.getenv(
+    "PADELEDGE_TRAIN_SCRIPT", os.path.join(BASE_DIR, "scripts", "train_shot_model.py")
+)
+LOG_PATH = os.getenv(
+    "PADELEDGE_AUTO_RETRAIN_LOG", os.path.join(BASE_DIR, "models", "auto_retrain.log")
+)
 
 
 def is_model_valid(model_path: str) -> bool:
