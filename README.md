@@ -79,6 +79,12 @@ Validate your label file:
 .venv/bin/python scripts/validate_labels.py --labels data/labels.csv --samples-root data/samples
 ```
 
+Check for shot-type conflicts vs folder structure:
+
+```bash
+.venv/bin/python scripts/check_label_conflicts.py --labels data/labels.csv
+```
+
 Useful option when preparing labels before clips are copied:
 
 ```bash
