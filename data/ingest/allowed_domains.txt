@@ -1,0 +1,7 @@
+# One domain per line. Add only sources you are legally allowed to use.
+youtube.com
+www.youtube.com
+youtu.be
+vimeo.com
+www.vimeo.com
+

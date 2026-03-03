@@ -90,3 +90,39 @@ Useful option when preparing labels before clips are copied:
 ```bash
 .venv/bin/python scripts/validate_labels.py --labels data/labels.csv --allow-missing-files
 ```
+
+## Controlled Web Ingest
+
+Use only approved sources with clear rights.
+
+1. Copy template to working manifest:
+
+```bash
+cp data/ingest/source_manifest_template.csv data/ingest/source_manifest.csv
+```
+
+2. Fill in rows and set:
+- `rights_confirmed=yes`
+- `approved_for_training=yes`
+
+3. Dry-run validation (no downloads):
+
+```bash
+.venv/bin/python scripts/ingest_pipeline.py --manifest data/ingest/source_manifest.csv --dry-run
+```
+
+4. Run ingest:
+
+```bash
+.venv/bin/python scripts/ingest_pipeline.py --manifest data/ingest/source_manifest.csv
+```
+
+Outputs:
+- Raw downloaded clips: `data/ingest/raw/`
+- Review summary: `data/ingest/review_candidates.csv`
+
+Strict mode fails when rows are rejected/failed:
+
+```bash
+.venv/bin/python scripts/ingest_pipeline.py --manifest data/ingest/source_manifest.csv --dry-run --strict
+```
